@@ -260,3 +260,72 @@ class ICPRefiner(DepthRefiner):
 
         extra_data = dict()
         return (predictions_refined, extra_data)
+
+    def refine_poses_single(
+        self,
+        predictions: PoseEstimatesType,
+        masks: Optional[torch.tensor] = None,
+        depth: Optional[torch.tensor] = None,
+        K: Optional[torch.tensor] = None,
+    ) -> Tuple[PoseEstimatesType, dict]:
+        """This is same as the above method. It was added to have a separate method
+        for when we want to run ICP on a single pose estimate and also don't care 
+        about extra data calculated and returned."""
+
+        assert depth is not None
+        assert K is not None
+
+        predictions_refined = predictions.clone()
+        resolution = depth.shape[-2:]
+
+        # df = predictions.infos
+        # labels = df.label.tolist()
+        # batch_im_ids = df.batch_im_id.tolist()
+
+        # N = len(predictions)
+        # N = len(predictions)
+        # TCO_ = predictions.poses  # [N,4,4]
+        K_ = K[[0]]  # [N,4,4]
+
+        render_output = self.renderer.render(
+            [str(self.renderer._object_dataset[0].label)],
+            TCO=predictions.poses,
+            K=K_,
+            light_datas=[self.light_datas] * 1,
+            resolution=resolution,
+            render_depth=True,
+        )
+
+        # [N,H,W]
+        all_depth_rendered = render_output.depths
+
+        # view_id = predictions.infos.loc[n, "batch_im_id"]
+        TCO_pred = predictions.poses[0].cpu().numpy()
+
+        # [H,W]
+        depth_measured = depth[0].squeeze().cpu().numpy()
+        cam_K = K_[0].cpu().numpy()
+        depth_rendered = all_depth_rendered[0].squeeze().cpu().numpy()
+
+        if masks is None:
+            mask_rendered, mask_measured = compute_masks(
+                mask_type="threshold",
+                depth_rendered=depth_rendered,
+                depth_measured=depth_measured,
+                depth_delta_thresh=0.1,
+            )
+
+            mask = mask_measured
+        else:
+            mask = masks[0].squeeze().cpu().numpy()
+
+        TCO_refined, retval = icp_refinement(
+            depth_measured, depth_rendered, mask, cam_K, TCO_pred, n_min_points=1000
+        )
+
+        # Assign poses to predictions refined
+        # predictions_refined.poses_input[0] = predictions.poses[0].clone()
+        if retval != -1:
+            predictions_refined.poses[0] = TCO_refined
+
+        return predictions_refined

@@ -44,7 +44,7 @@ from .scene_dataset import (
 
 sys.path.append(str(BOP_TOOLKIT_DIR))
 # Third Party
-from bop_toolkit_lib import inout  # noqa
+# from bop_toolkit_lib import inout  # noqa
 
 sys.path = sys.path[:-1]
 
@@ -160,125 +160,125 @@ class BOPDataset(SceneDataset):
             load_segmentation=True,
         )
 
-    def _load_scene_observation(self, image_infos: ObservationInfos) -> SceneObservation:
-        scene_id, view_id = image_infos.scene_id, image_infos.view_id
-        view_id = int(view_id)
-        view_id_str = f"{view_id:06d}"
-        scene_id_str = f"{int(scene_id):06d}"
-        scene_dir = self.base_dir / scene_id_str
-
-        # All stored in self.annotations (basic, problem with shared memory)
-        # TODO: Also change the pandas numpy arrays to np.string_ instead of np.object
-        # See https://github.com/pytorch/pytorch/issues/13246#issuecomment-905703662
-        this_annotation_path = scene_dir / "per_view_annotations" / f"view={str(view_id)}.json"
-        if this_annotation_path.exists():
-            this_annotation = json.loads(this_annotation_path.read_text())
-            this_gt = this_annotation.get("gt")
-            this_gt_info = this_annotation.get("gt_info")
-            this_cam_info = this_annotation.get("camera")
-        else:
-            this_annotation = self.annotations[scene_id_str]
-            this_scene_gt = this_annotation.get("scene_gt")
-            this_cam_info = this_annotation["scene_camera"][str(view_id)]
-            if this_scene_gt is not None and str(view_id) in this_scene_gt:
-                this_gt = this_scene_gt[str(view_id)]
-                this_scene_gt_info = this_annotation.get("scene_gt_info")
-                this_gt_info = this_scene_gt_info[str(view_id)]
-            else:
-                this_gt = None
-                this_gt_info = None
-
-        rgb_dir = scene_dir / "rgb"
-        if not rgb_dir.exists():
-            rgb_dir = scene_dir / "gray"
-        rgb_path = rgb_dir / f"{view_id_str}.png"
-        if not rgb_path.exists():
-            rgb_path = rgb_path.with_suffix(".jpg")
-        if not rgb_path.exists():
-            rgb_path = rgb_path.with_suffix(".tif")
-
-        rgb = np.array(Image.open(rgb_path))
-        if rgb.ndim == 2:
-            # NOTE: This is for ITODD's gray images
-            rgb = np.repeat(rgb[..., None], 3, axis=-1)
-        rgb = rgb[..., :3]
-        h, w = rgb.shape[:2]
-
-        cam_annotation = this_cam_info
-        if "cam_R_w2c" in cam_annotation:
-            RCW = np.array(cam_annotation["cam_R_w2c"]).reshape(3, 3)
-            tCW = np.array(cam_annotation["cam_t_w2c"]) * 0.001
-            TCW = Transform(RCW, tCW)
-        else:
-            TCW = Transform(np.eye(3), np.zeros(3))
-        K = np.array(cam_annotation["cam_K"]).reshape(3, 3)
-        TWC = TCW.inverse()
-
-        camera_data = CameraData(TWC=TWC, K=K, resolution=rgb.shape[:2])
-
-        TWC = TCW.inverse()
-
-        object_datas = []
-        segmentation = np.zeros((h, w), dtype=np.uint32)
-        if this_gt_info is not None:
-            annotation = this_gt
-            n_objects = len(annotation)
-            visib = this_gt_info
-            for n in range(n_objects):
-                RCO = np.array(annotation[n]["cam_R_m2c"]).reshape(3, 3)
-                tCO = np.array(annotation[n]["cam_t_m2c"]) * 0.001
-                TCO = Transform(RCO, tCO)
-                TWO = TWC * TCO
-                if self.use_raw_object_id:
-                    name = str(annotation[n]["obj_id"])
-                else:
-                    obj_id = annotation[n]["obj_id"]
-                    name = f"obj_{int(obj_id):06d}"
-
-                bbox_visib = np.array(visib[n]["bbox_visib"]).tolist()
-                x, y, w, h = bbox_visib
-                x1 = x
-                y1 = y
-                x2 = x + w
-                y2 = y + h
-                bbox_visib = [x1, y1, x2, y2]
-
-                bbox_obj = np.array(visib[n]["bbox_obj"]).tolist()
-                x, y, w, h = bbox_obj
-                x1 = x
-                y1 = y
-                x2 = x + w
-                y2 = y + h
-                bbox_obj = [x1, y1, x2, y2]
-
-                label = self.label_format.format(label=name)
-                object_data = ObjectData(
-                    label=label,
-                    TWO=TWO,
-                    visib_fract=visib[n]["visib_fract"],
-                    unique_id=n + 1,
-                    bbox_modal=bbox_visib,
-                    bbox_amodal=bbox_obj,
-                )
-                object_datas.append(object_data)
-
-            mask_path = scene_dir / "mask_visib" / f"{view_id_str}_all.png"
-            if mask_path.exists():
-                segmentation = np.array(Image.open(mask_path), dtype=np.uint32)
-            else:
-                for n in range(n_objects):
-                    binary_mask_n = np.array(
-                        Image.open(scene_dir / "mask_visib" / f"{view_id_str}_{n:06d}.png")
-                    )
-                    segmentation[binary_mask_n == 255] = n + 1
-
-        depth = None
-        if self.load_depth:
-            depth_path = scene_dir / "depth" / f"{view_id_str}.png"
-            if not depth_path.exists():
-                depth_path = depth_path.with_suffix(".tif")
-            depth = np.array(inout.load_depth(depth_path))
-            depth *= cam_annotation["depth_scale"] / 1000
+    # def _load_scene_observation(self, image_infos: ObservationInfos) -> SceneObservation:
+    #     scene_id, view_id = image_infos.scene_id, image_infos.view_id
+    #     view_id = int(view_id)
+    #     view_id_str = f"{view_id:06d}"
+    #     scene_id_str = f"{int(scene_id):06d}"
+    #     scene_dir = self.base_dir / scene_id_str
+    #
+    #     # All stored in self.annotations (basic, problem with shared memory)
+    #     # TODO: Also change the pandas numpy arrays to np.string_ instead of np.object
+    #     # See https://github.com/pytorch/pytorch/issues/13246#issuecomment-905703662
+    #     this_annotation_path = scene_dir / "per_view_annotations" / f"view={str(view_id)}.json"
+    #     if this_annotation_path.exists():
+    #         this_annotation = json.loads(this_annotation_path.read_text())
+    #         this_gt = this_annotation.get("gt")
+    #         this_gt_info = this_annotation.get("gt_info")
+    #         this_cam_info = this_annotation.get("camera")
+    #     else:
+    #         this_annotation = self.annotations[scene_id_str]
+    #         this_scene_gt = this_annotation.get("scene_gt")
+    #         this_cam_info = this_annotation["scene_camera"][str(view_id)]
+    #         if this_scene_gt is not None and str(view_id) in this_scene_gt:
+    #             this_gt = this_scene_gt[str(view_id)]
+    #             this_scene_gt_info = this_annotation.get("scene_gt_info")
+    #             this_gt_info = this_scene_gt_info[str(view_id)]
+    #         else:
+    #             this_gt = None
+    #             this_gt_info = None
+    #
+    #     rgb_dir = scene_dir / "rgb"
+    #     if not rgb_dir.exists():
+    #         rgb_dir = scene_dir / "gray"
+    #     rgb_path = rgb_dir / f"{view_id_str}.png"
+    #     if not rgb_path.exists():
+    #         rgb_path = rgb_path.with_suffix(".jpg")
+    #     if not rgb_path.exists():
+    #         rgb_path = rgb_path.with_suffix(".tif")
+    #
+    #     rgb = np.array(Image.open(rgb_path))
+    #     if rgb.ndim == 2:
+    #         # NOTE: This is for ITODD's gray images
+    #         rgb = np.repeat(rgb[..., None], 3, axis=-1)
+    #     rgb = rgb[..., :3]
+    #     h, w = rgb.shape[:2]
+    #
+    #     cam_annotation = this_cam_info
+    #     if "cam_R_w2c" in cam_annotation:
+    #         RCW = np.array(cam_annotation["cam_R_w2c"]).reshape(3, 3)
+    #         tCW = np.array(cam_annotation["cam_t_w2c"]) * 0.001
+    #         TCW = Transform(RCW, tCW)
+    #     else:
+    #         TCW = Transform(np.eye(3), np.zeros(3))
+    #     K = np.array(cam_annotation["cam_K"]).reshape(3, 3)
+    #     TWC = TCW.inverse()
+    #
+    #     camera_data = CameraData(TWC=TWC, K=K, resolution=rgb.shape[:2])
+    #
+    #     TWC = TCW.inverse()
+    #
+    #     object_datas = []
+    #     segmentation = np.zeros((h, w), dtype=np.uint32)
+    #     if this_gt_info is not None:
+    #         annotation = this_gt
+    #         n_objects = len(annotation)
+    #         visib = this_gt_info
+    #         for n in range(n_objects):
+    #             RCO = np.array(annotation[n]["cam_R_m2c"]).reshape(3, 3)
+    #             tCO = np.array(annotation[n]["cam_t_m2c"]) * 0.001
+    #             TCO = Transform(RCO, tCO)
+    #             TWO = TWC * TCO
+    #             if self.use_raw_object_id:
+    #                 name = str(annotation[n]["obj_id"])
+    #             else:
+    #                 obj_id = annotation[n]["obj_id"]
+    #                 name = f"obj_{int(obj_id):06d}"
+    #
+    #             bbox_visib = np.array(visib[n]["bbox_visib"]).tolist()
+    #             x, y, w, h = bbox_visib
+    #             x1 = x
+    #             y1 = y
+    #             x2 = x + w
+    #             y2 = y + h
+    #             bbox_visib = [x1, y1, x2, y2]
+    #
+    #             bbox_obj = np.array(visib[n]["bbox_obj"]).tolist()
+    #             x, y, w, h = bbox_obj
+    #             x1 = x
+    #             y1 = y
+    #             x2 = x + w
+    #             y2 = y + h
+    #             bbox_obj = [x1, y1, x2, y2]
+    #
+    #             label = self.label_format.format(label=name)
+    #             object_data = ObjectData(
+    #                 label=label,
+    #                 TWO=TWO,
+    #                 visib_fract=visib[n]["visib_fract"],
+    #                 unique_id=n + 1,
+    #                 bbox_modal=bbox_visib,
+    #                 bbox_amodal=bbox_obj,
+    #             )
+    #             object_datas.append(object_data)
+    #
+    #         mask_path = scene_dir / "mask_visib" / f"{view_id_str}_all.png"
+    #         if mask_path.exists():
+    #             segmentation = np.array(Image.open(mask_path), dtype=np.uint32)
+    #         else:
+    #             for n in range(n_objects):
+    #                 binary_mask_n = np.array(
+    #                     Image.open(scene_dir / "mask_visib" / f"{view_id_str}_{n:06d}.png")
+    #                 )
+    #                 segmentation[binary_mask_n == 255] = n + 1
+    #
+    #     depth = None
+    #     if self.load_depth:
+    #         depth_path = scene_dir / "depth" / f"{view_id_str}.png"
+    #         if not depth_path.exists():
+    #             depth_path = depth_path.with_suffix(".tif")
+    #         depth = np.array(inout.load_depth(depth_path))
+    #         depth *= cam_annotation["depth_scale"] / 1000
 
         observation = SceneObservation(
             rgb=rgb,

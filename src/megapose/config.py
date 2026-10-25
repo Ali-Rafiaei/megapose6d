@@ -26,9 +26,13 @@ from joblib import Memory
 # MegaPose
 import megapose
 
-PROJECT_ROOT = Path(megapose.__file__).parent.parent.parent
+PROJECT_ROOT = Path(megapose.__file__).parent
 PROJECT_DIR = PROJECT_ROOT
+
 LOCAL_DATA_DIR = Path(os.environ.get("MEGAPOSE_DATA_DIR", Path(PROJECT_DIR) / "local_data"))
+print(f"PROJECT_DIR: {PROJECT_DIR}")
+print(f"ldd: {LOCAL_DATA_DIR}")
+# LOCAL_DATA_DIR = Path(os.environ.get("MEGAPOSE_DATA_DIR")) / "local_data"
 BOP_DS_DIR = LOCAL_DATA_DIR / "bop_datasets"
 NB_DATA_DIR = LOCAL_DATA_DIR / "notebook_data"
 SHAPENET_DIR = LOCAL_DATA_DIR / "shapenetcorev2"
@@ -42,7 +46,7 @@ BLENDER_VERSION = "blender-2.93.8-linux-x64"
 BLENDER_INSTALL_DIR = LOCAL_DATA_DIR / BLENDER_VERSION
 if not BLENDER_INSTALL_DIR.exists():
     BLENDER_INSTALL_DIR = Path(os.environ["HOME"]) / BLENDER_VERSION
-PYTHON_BIN_PATH = Path(os.environ["CONDA_PREFIX"]) / "bin/python"
+# PYTHON_BIN_PATH = Path(os.environ["CONDA_PREFIX"]) / "bin/python"
 
 BOP_PANDA3D_DS_DIR = LOCAL_DATA_DIR / "bop_models_panda3d"
 
@@ -59,7 +63,7 @@ DEBUG_RESULTS_DIR = LOCAL_DATA_DIR / "debug/results"
 DEBUG_DATA_DIR = LOCAL_DATA_DIR / "debug_data"
 CACHE_DIR = LOCAL_DATA_DIR / "joblib_cache"
 
-assert LOCAL_DATA_DIR.exists()
+# assert LOCAL_DATA_DIR.exists()
 EXP_DIR.mkdir(exist_ok=True)
 RESULTS_DIR.mkdir(exist_ok=True)
 DEBUG_DATA_DIR.mkdir(exist_ok=True)

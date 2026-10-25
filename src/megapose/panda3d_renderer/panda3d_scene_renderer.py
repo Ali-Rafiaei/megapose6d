@@ -59,9 +59,33 @@ class App(ShowBase):
     """Panda3d App."""
 
     def __init__(self) -> None:
+        # Use pandagl when a real X display is available (local machine),
+        # pandaegl otherwise (headless cluster node).
+        # Multisampling is disabled: most headless EGL configs don't support it
+        # and it causes "Could not open window" on cluster nodes.
+        headless = "DISPLAY" not in os.environ
+        display_driver = "pandaegl" if headless else "pandagl"
+        print(
+            f"[Panda3D] App.__init__: headless={headless}, driver={display_driver}, "
+            f"DISPLAY={os.environ.get('DISPLAY', '<not set>')}, "
+            f"CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES', '<not set>')}",
+            flush=True,
+        )
+
+        # EGL device: set EGL_VISIBLE_DEVICES to match the first CUDA device so
+        # Panda3D uses the same GPU that CUDA is using.  Skip when not headless.
+        if headless and "EGL_VISIBLE_DEVICES" not in os.environ:
+            cuda_devs = os.environ.get("CUDA_VISIBLE_DEVICES", "0")
+            # CUDA_VISIBLE_DEVICES may be a comma-separated list; take the first entry.
+            # It may also be a UUID (GPU-xxxxx); in that case fall back to index 0.
+            first = cuda_devs.split(",")[0].strip()
+            os.environ["EGL_VISIBLE_DEVICES"] = first if first.isdigit() else "0"
+            print(f"[Panda3D] EGL_VISIBLE_DEVICES set to {os.environ['EGL_VISIBLE_DEVICES']}", flush=True)
+
+        print("[Panda3D] Calling load_prc_file_data...", flush=True)
         p3d.core.load_prc_file_data(
             __file__,
-            "load-display pandagl\n"
+            f"load-display {display_driver}\n"
             "notify-level-assimp fatal\n"
             "notify-level-egldisplay fatal\n"
             "notify-level-glgsg fatal\n"
@@ -70,8 +94,9 @@ class App(ShowBase):
             "notify-level-device fatal\n"
             "texture-minfilter mipmap\n"
             "texture-anisotropic-degree 16\n"
-            "framebuffer-multisample 1\n"
-            "multisamples 4\n"
+            # Multisampling disabled: not supported by most headless EGL configs.
+            "framebuffer-multisample 0\n"
+            "multisamples 0\n"
             "background-color 0.0 0.0 0.0 0.0\n"
             "load-file-type p3assimp\n"
             "track-memory-usage 1\n"
@@ -80,22 +105,9 @@ class App(ShowBase):
             "audio-library-name null\n"
             "model-cache-dir\n",
         )
-        assert "CUDA_VISIBLE_DEVICES" in os.environ
-        devices = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
-        assert len(devices) == 1
-        if "EGL_VISIBLE_DEVICES" not in os.environ:
-            out = subprocess.check_output(
-                ["nvidia-smi", "--id=" + str(devices[0]), "-q", "--xml-format"]
-            )
-            tree = ET.fromstring(out)
-            gpu = tree.findall("gpu")[0]
-            assert gpu is not None
-            minor_number_el = gpu.find("minor_number")
-            assert minor_number_el is not None
-            dev_id = minor_number_el.text
-            os.environ["EGL_VISIBLE_DEVICES"] = str(dev_id)
-
+        print("[Panda3D] Calling ShowBase.__init__(windowType='offscreen')...", flush=True)
         super().__init__(windowType="offscreen")
+        print("[Panda3D] ShowBase.__init__ returned successfully.", flush=True)
         self.render.set_shader_auto()
         self.render.set_antialias(p3d.core.AntialiasAttrib.MAuto)
         self.render.set_two_sided(True)

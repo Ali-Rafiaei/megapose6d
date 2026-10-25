@@ -173,6 +173,34 @@ class CameraData:
             data.resolution = (h, w)
         return data
 
+    # If a dict is passed, it is assumed to be from a json deserialization
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "CameraData":
+        data = CameraData()
+        for k in ("TWC", "TWC_init"):
+            if k in d:
+                item = d[k]
+                assert isinstance(item, list)
+                quat_list, trans_list = item
+                assert isinstance(quat_list, list)
+                assert isinstance(trans_list, list)
+                quat = tuple(quat_list)
+                trans = tuple(trans_list)
+                setattr(data, k, Transform(tuple(quat), tuple(trans)))
+        for k in ("camera_id",):
+            if k in d:
+                setattr(data, k, d[k])
+        for k in ("K",):
+            if k in d:
+                setattr(data, k, np.array(d[k]))
+        if "resolution" in d:
+            assert isinstance(d["resolution"], list)
+            h, w = d["resolution"]
+            assert isinstance(h, int)
+            assert isinstance(w, int)
+            data.resolution = (h, w)
+        return data
+
 
 @dataclass
 class ObservationInfos:
